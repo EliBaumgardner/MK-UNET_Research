@@ -1,5 +1,6 @@
 import os
 import time
+import random
 import logging
 import argparse
 from datetime import datetime
@@ -161,12 +162,15 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
         torch.save(model.state_dict(), os.path.join(save_path, f"{model_name}-best.pth"))
     
 if __name__ == '__main__':
-    # Initial defaults
-    dataset_name = 'ClinicDB' #'ColonDB'
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', type=str, default='MK_UNet', 
                         choices=['MK_UNet_T', 'MK_UNet_S', 'MK_UNet', 'MK_UNet_M', 'MK_UNet_L'])    
+    parser.add_argument('--dataset_name', type=str, default='ClinicDB',
+                        choices=['ClinicDB', 'ColonDB'])
+    parser.add_argument('--num_runs', type=int, default=5,
+                        help='Independent trainings; each run gets seed + run - 1.')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='Base seed. Omit for nondeterministic runs.')
     parser.add_argument('--epoch', type=int, default=200)
     parser.add_argument('--lr', type=float, default=0.0005) # base learning rate is 0.0005 for CosineAnnealingLR and 0.0001 for no scheduler
     parser.add_argument('--batchsize', type=int, default=8)
@@ -177,10 +181,16 @@ if __name__ == '__main__':
     parser.add_argument('--decay_epoch', type=int, default=300)
     parser.add_argument('--color_image', default=True)
     parser.add_argument('--augmentation', default=True)
-    parser.add_argument('--train_path', type=str, default=f'./data/polyp/target/{dataset_name}/train/')
-    parser.add_argument('--test_path', type=str, default=f'./data/polyp/target/{dataset_name}/')
+    parser.add_argument('--train_path', type=str, default=None)
+    parser.add_argument('--test_path', type=str, default=None)
     parser.add_argument('--train_save', type=str, default='') 
     opt = parser.parse_args()
+
+    dataset_name = opt.dataset_name
+    if opt.train_path is None:
+        opt.train_path = f'./data/polyp/target/{dataset_name}/train/'
+    if opt.test_path is None:
+        opt.test_path = f'./data/polyp/target/{dataset_name}/'
 
     # Network configuration mapping
     NET_CONFIGS = {
@@ -198,7 +208,14 @@ if __name__ == '__main__':
         print(f"WARNING: Network '{chosen_net}' not found. Defaulting to 'MK_UNet'.")
         chosen_net = 'MK_UNet'
 
-    for run in [1,2,3,4,5]:
+    for run in range(1, opt.num_runs + 1):
+        if opt.seed is not None:
+            run_seed = opt.seed + run - 1
+            random.seed(run_seed)
+            np.random.seed(run_seed)
+            torch.manual_seed(run_seed)
+            torch.cuda.manual_seed_all(run_seed)
+
         dict_plot = {'val': [], 'test': []}
         best = 0.0
         test_dice_at_best_val = 0.0
