@@ -1,0 +1,21 @@
+# Local tooling and IDE state
+.claude/
+.idea/
+.mcp.json
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Datasets (staged from Drive, never versioned)
+data/
+
+# Training artifacts (symlinked to Drive in Colab)
+model_pth/
+logs/
+results_polyp/
+predictions_polyp/
+*.pth
+All_Runs_Summary_Polyp.xlsx
